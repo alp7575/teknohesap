@@ -3063,50 +3063,57 @@
                     barcodeScanner = null;
                 }
                 
-                // Kamera erişimi iste
+                // Gelişmiş kamera erişimi
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
-                        facingMode: 'environment', // Arka kamera
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        facingMode: 'environment',
+                        width: { ideal: 1920, min: 640 },
+                        height: { ideal: 1080, min: 480 },
+                        focusMode: 'continuous',
+                        whiteBalanceMode: 'continuous',
+                        exposureMode: 'continuous'
                     } 
                 });
                 
                 const video = document.getElementById('barcodeVideo');
                 video.srcObject = stream;
                 
-                // QuaggaJS'yi yapılandır
+                // İyileştirilmiş QuaggaJS konfigürasyonu
                 Quagga.init({
                     inputStream: {
                         name: "Live",
                         type: "LiveStream",
                         target: video,
                         constraints: {
-                            width: 640,
-                            height: 480,
+                            width: { min: 640, ideal: 1920 },
+                            height: { min: 480, ideal: 1080 },
                             facingMode: "environment"
                         }
                     },
                     locator: {
-                        patchSize: "medium",
-                        halfSample: true
+                        patchSize: "large", // Daha büyük patch size
+                        halfSample: false   // Daha yüksek kalite
                     },
-                    numOfWorkers: 2,
-                    frequency: 10,
+                    numOfWorkers: 4,        // Daha fazla worker
+                    frequency: 15,          // Daha sık tarama
                     decoder: {
                         readers: [
-                            "code_128_reader",
+                            "code_128_reader",  // IMEI için en yaygın
                             "ean_reader",
-                            "ean_8_reader",
+                            "ean_8_reader", 
+                            "ean_13_reader",    // IMEI bazen EAN-13 olabilir
                             "code_39_reader",
                             "code_39_vin_reader",
                             "codabar_reader",
                             "upc_reader",
                             "upc_e_reader",
-                            "i2of5_reader"
+                            "i2of5_reader",
+                            "2of5_reader",
+                            "code_93_reader"
                         ]
                     },
-                    locate: true
+                    locate: true,
+                    debug: false // Performans için debug kapalı
                 }, function(err) {
                     if (err) {
                         console.error('QuaggaJS başlatma hatası:', err);
@@ -3114,29 +3121,25 @@
                         return;
                     }
                     
-                    console.log("Barkod tarayıcısı başlatıldı");
+                    console.log("Barkod tarayıcısı başlatıldı - Gelişmiş mod");
                     Quagga.start();
                     isScanning = true;
-                    updateScanningStatus('🔍 Barkod aranıyor...');
+                    updateScanningStatus('🔍 IMEI barkodu aranıyor...');
+                    showBarcodeInstructions();
                 });
                 
-                // Barkod algılandığında
+                // Gelişmiş barkod algılama
                 Quagga.onDetected(function(result) {
                     if (!isScanning) return;
                     
                     const code = result.codeResult.code;
-                    console.log('Barkod algılandı:', code);
+                    const format = result.codeResult.format;
                     
-                    // IMEI formatını kontrol et (15 haneli sayı)
-                    if (isValidIMEI(code)) {
-                        handleBarcodeDetected(code);
-                    } else {
-                        // Geçersiz IMEI, taramaya devam et
-                        updateScanningStatus(`❌ Geçersiz IMEI: ${code} - Tekrar deneyin...`);
-                        setTimeout(() => {
-                            updateScanningStatus('🔍 Barkod aranıyor...');
-                        }, 2000);
-                    }
+                    console.log('Algılanan barkod:', code, 'Format:', format);
+                    console.log('Güven skoru:', result.codeResult.decodedCodes);
+                    
+                    // Farklı IMEI formatlarını kontrol et
+                    handleBarcodeDetected(code);
                 });
                 
                 barcodeScanner = true;
@@ -3180,41 +3183,69 @@
             }
         }
 
-        // IMEI formatını doğrula
+        // Gelişmiş IMEI formatı doğrulama
         function isValidIMEI(imei) {
-            // IMEI 15 haneli sayı olmalı
+            // IMEI'yi temizle - boşlukları ve özel karakterleri kaldır
+            const cleanImei = imei.replace(/\s+/g, '').replace(/[^\d]/g, '');
             const imeiRegex = /^\d{15}$/;
-            return imeiRegex.test(imei);
+            return imeiRegex.test(cleanImei);
         }
 
-        // Barkod algılandığında
-        function handleBarcodeDetected(imei) {
+        // Gelişmiş barkod algılama
+        function handleBarcodeDetected(rawImei) {
             isScanning = false;
             
-            // Başarı göstergesi
-            updateScanningStatus('✅ IMEI başarıyla okundu!');
+            // IMEI'yi temizle
+            const cleanImei = rawImei.replace(/\s+/g, '').replace(/[^\d]/g, '');
             
-            // Sonuç alanını göster
-            const resultDiv = document.getElementById('scanResult');
-            const errorDiv = document.getElementById('scanError');
-            const scannedImeiEl = document.getElementById('scannedImei');
-            const useBtn = document.getElementById('useBarcodeBtn');
+            console.log('Ham barkod:', rawImei);
+            console.log('Temizlenmiş IMEI:', cleanImei);
             
-            resultDiv.classList.remove('hidden');
-            errorDiv.classList.add('hidden');
-            scannedImeiEl.textContent = imei;
-            useBtn.classList.remove('hidden');
-            
-            // Vibration feedback (destekleyen cihazlarda)
-            if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
+            // IMEI formatını kontrol et
+            if (isValidIMEI(cleanImei)) {
+                // Başarı göstergesi
+                updateScanningStatus('✅ IMEI başarıyla okundu!');
+                
+                // Sonuç alanını göster
+                const resultDiv = document.getElementById('scanResult');
+                const errorDiv = document.getElementById('scanError');
+                const scannedImeiEl = document.getElementById('scannedImei');
+                const useBtn = document.getElementById('useBarcodeBtn');
+                
+                resultDiv.classList.remove('hidden');
+                errorDiv.classList.add('hidden');
+                scannedImeiEl.textContent = cleanImei; // Temizlenmiş IMEI'yi göster
+                useBtn.classList.remove('hidden');
+                
+                // Vibration ve ses feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]);
+                }
+                playBeepSound();
+                
+                // Tarayıcıyı duraklat
+                Quagga.stop();
+            } else {
+                // Geçersiz IMEI, taramaya devam et
+                updateScanningStatus(`❌ Geçersiz format: ${rawImei} - Tekrar deneyin...`);
+                setTimeout(() => {
+                    updateScanningStatus('🔍 IMEI barkodu aranıyor...');
+                    isScanning = true;
+                }, 2000);
             }
-            
-            // Ses feedback (opsiyonel)
-            playBeepSound();
-            
-            // Tarayıcıyı duraklat
-            Quagga.stop();
+        }
+
+        // Kullanım ipuçları göster
+        function showBarcodeInstructions() {
+            setTimeout(() => {
+                updateScanningStatus(`
+                    📱 IMEI Barkod Okuma İpuçları:<br>
+                    • Telefonu düz tutun<br>
+                    • Barkodu tam kareler içine alın<br>
+                    • Yeterli ışık olduğundan emin olun<br>
+                    • 15-20 cm mesafeden deneyin
+                `);
+            }, 3000);
         }
 
         // Tarama durumunu güncelle
@@ -3282,6 +3313,9 @@
                 document.getElementById('scanError').classList.add('hidden');
                 document.getElementById('useBarcodeBtn').classList.add('hidden');
                 
+                // Manuel input'u temizle
+                document.getElementById('manualImeiInput').value = '';
+                
                 // Tarayıcıyı başlat
                 setTimeout(() => {
                     startBarcodeScanner();
@@ -3323,10 +3357,46 @@
             document.getElementById('scanError').classList.add('hidden');
             document.getElementById('useBarcodeBtn').classList.add('hidden');
             
+            // Manuel input'u temizle
+            document.getElementById('manualImeiInput').value = '';
+            
             // Tarayıcıyı yeniden başlat
             setTimeout(() => {
                 startBarcodeScanner();
             }, 500);
+        }
+
+        // Manuel IMEI kullan
+        function useManualImei(imei) {
+            const imeiInput = document.getElementById('phoneImei');
+            
+            if (imeiInput) {
+                imeiInput.value = imei;
+                imeiInput.focus();
+                
+                showToast(`IMEI manuel olarak girildi: ${imei}`, 'success');
+                closeBarcodeModal();
+            }
+        }
+
+        // Flaş/ışık kontrolü (destekleyen cihazlarda)
+        async function toggleFlashlight() {
+            try {
+                const video = document.getElementById('barcodeVideo');
+                if (!video.srcObject) return;
+                
+                const stream = video.srcObject;
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    await track.applyConstraints({
+                        advanced: [{ torch: !track.getSettings().torch }]
+                    });
+                }
+            } catch (error) {
+                console.log('Flaş desteklenmiyor:', error);
+            }
         }
         
         // Auto currency conversion for shortage items
@@ -8764,6 +8834,34 @@
             // Tekrar tarama butonu
             document.getElementById('retryBarcodeBtn').addEventListener('click', retryBarcodeScanning);
             
+            // Manuel IMEI kullanma butonu
+            document.getElementById('useManualImeiBtn').addEventListener('click', () => {
+                const manualImei = document.getElementById('manualImeiInput').value.trim();
+                if (isValidIMEI(manualImei)) {
+                    useManualImei(manualImei);
+                } else {
+                    showToast('Geçerli bir 15 haneli IMEI numarası girin.', 'error');
+                }
+            });
+            
+            // Manuel IMEI input - Enter tuşu desteği
+            document.getElementById('manualImeiInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('useManualImeiBtn').click();
+                }
+            });
+            
+            // Manuel IMEI input - sadece rakam girişi
+            document.getElementById('manualImeiInput').addEventListener('input', (e) => {
+                // Sadece rakamları tut
+                e.target.value = e.target.value.replace(/[^\d]/g, '');
+                
+                // 15 karakterden fazla girişi engelle
+                if (e.target.value.length > 15) {
+                    e.target.value = e.target.value.slice(0, 15);
+                }
+            });
+            
             // Modal dışına tıklama ile kapatma
             barcodeModal.addEventListener('click', (e) => {
                 if (e.target === barcodeModal) {
@@ -8813,6 +8911,14 @@
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div class="border-2 border-emerald-400 w-48 h-12 rounded-lg border-dashed"></div>
                 </div>
+                <!-- Flaş Butonu -->
+                <button id="flashToggleBtn" class="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors" onclick="toggleFlashlight()" title="Flaş Aç/Kapat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6.09 13L3 16.09V21h4.91L11 18H6l3-9 3 9h5l3.09 3.09V21H19.91L16 17.09 13 13"/>
+                        <path d="M13 13h8l-2-8-3 8"/>
+                        <path d="M13 13L8 8l1.41-1.41L13 13"/>
+                    </svg>
+                </button>
                 <div id="scanningStatus" class="absolute bottom-2 left-2 right-2 text-center">
                     <span class="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
                         🔍 Barkod aranıyor...
@@ -8843,6 +8949,16 @@
                     <span class="font-semibold text-red-800">Tarama Hatası</span>
                 </div>
                 <p id="errorMessage" class="text-red-700 text-sm"></p>
+            </div>
+            
+            <!-- Manuel IMEI Girişi -->
+            <div class="border-t border-slate-200 pt-4 mb-4">
+                <h3 class="font-semibold text-slate-700 mb-3">📝 Manuel IMEI Girişi</h3>
+                <div class="flex gap-2">
+                    <input type="text" id="manualImeiInput" class="input-field flex-1" placeholder="15 haneli IMEI numarası" maxlength="15" pattern="[0-9]{15}">
+                    <button id="useManualImeiBtn" class="btn btn-primary">Kullan</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">💡 Barkod okunamıyorsa IMEI'yi manuel olarak girebilirsiniz</p>
             </div>
             
             <!-- Butonlar -->
