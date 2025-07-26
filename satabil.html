@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -6,12 +6,54 @@
     <title>TeknoHesap - Yönetim Paneli</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- QuaggaJS - Barkod Okuma Kütüphanesi (Opsiyonel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js" 
+            onerror="console.warn('QuaggaJS yüklenemedi - Barkod özelliği devre dışı')"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        /* PERFORMANS OPTİMİZASYONU - TÜM ANİMASYONLAR KAPALI */
+        * {
+            animation: none !important;
+            transition: none !important;
+            transform: none !important;
+        }
+
+        /* Hover efektlerini basitleştir */
+        .tab:hover,
+        .btn:hover,
+        button:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Gradient animasyonlarını kapat */
+        .animated-title {
+            background: linear-gradient(45deg, #10b981, #059669) !important;
+            background-clip: text !important;
+            -webkit-background-clip: text !important;
+            animation: none !important;
+        }
+
+        /* Icon animasyonlarını kapat */
+        .icon-hover-scale,
+        .icon-hover-rotate,
+        .icon-hover-bounce,
+        .icon-pulse,
+        .icon-glow,
+        .icon-shake,
+        .icon-float,
+        .icon-bounce,
+        .icon-hover,
+        .icon-hover-spin,
+        .icon-active-pulse {
+            transform: none !important;
+            animation: none !important;
+        }
+
         /* CSS Custom Properties for Theme System */
         :root {
             /* Light Theme Colors */
@@ -1101,6 +1143,36 @@
             color: #34d399 !important;
             /* Tüm animasyonlar kaldırıldı */
         }
+        /* Barkod Modal Özel Stilleri */
+        #barcodeVideo {
+            background: #000;
+            border-radius: 0.5rem;
+            object-fit: cover;
+        }
+
+        .scanning-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 50px;
+            border: 2px dashed #10b981;
+            border-radius: 8px;
+        }
+
+        /* Mobil için responsive iyileştirmeler */
+        @media (max-width: 640px) {
+            #barcodeVideo {
+                height: 200px;
+            }
+            
+            .scanning-overlay {
+                width: 150px;
+                height: 40px;
+            }
+        }
+
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -1688,7 +1760,7 @@
         
         <div id="service-panel" class="hidden"> <div class="grid grid-cols-1 xl:grid-cols-3 gap-8"><div class="card xl:col-span-1"><h2 class="text-xl font-bold mb-6 text-slate-800">Yeni Servis Kaydı</h2><form id="addServiceForm" class="space-y-6"><div><label for="customerName">Müşteri Adı Soyadı</label><input type="text" id="customerName" class="input-field" placeholder="Müşteri Adı Soyadı" required></div><div><label for="customerPhone">Müşteri Telefonu</label><input type="tel" id="customerPhone" class="input-field" placeholder="Müşteri Telefonu"></div><div><label for="deviceName">Cihaz Modeli</label><input type="text" id="deviceName" class="input-field" placeholder="Örn: iPhone 13" required></div><div><label for="deviceProblem">Arıza Açıklaması</label><textarea id="deviceProblem" class="input-field" placeholder="Arıza Açıklaması" rows="2"></textarea></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="partCost">Parça Ücreti (Maliyet)</label><input type="number" id="partCost" class="input-field" min="0" step="0.01"></div><div><label for="laborCost">Usta Ücreti (Maliyet)</label><input type="number" id="laborCost" class="input-field" min="0" step="0.01"></div></div><div><label for="totalFee">Toplam Servis Ücreti (Müşteri)</label><input type="number" id="totalFee" class="input-field" placeholder="Müşteriden alınacak ücret" min="0" step="0.01" required></div><button type="submit" class="btn btn-primary w-full">Servis Kaydı Oluştur</button></form></div><div class="card xl:col-span-2"><h2 class="text-xl font-bold mb-6 text-slate-800">Aktif Servis İşlemleri</h2><div class="overflow-x-auto"><table class="w-full text-sm text-left min-w-[640px] sm:min-w-full"><thead class="text-xs text-slate-500 uppercase bg-slate-100 tracking-wide"><tr><th class="px-2 py-3 sm:px-4 sm:py-4">Müşteri</th><th class="px-2 py-3 sm:px-4 sm:py-4">Cihaz</th><th class="px-2 py-3 sm:px-4 sm:py-4">Net Kâr</th><th class="px-2 py-3 sm:px-4 sm:py-4">Durum</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-center">İşlemler</th></tr></thead><tbody id="serviceLog"></tbody></table></div></div></div></div>
         <div id="service-history-panel" class="hidden"><div class="card"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3"><h2 class="text-2xl font-bold text-slate-800">Tamamlanan Servis Geçmişi</h2><button class="btn btn-secondary export-btn self-start sm:self-center" data-table-id="serviceHistoryLogTable" data-filename="servis-gecmisi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m12 18-2-2 2-2"/><path d="m7 16h5"/></svg>Excel'e Aktar</button></div><input type="text" id="serviceHistorySearchInput" class="input-field mb-4" placeholder="Müşteri Adı, Cihaz Modeli veya Sorun ile ara..."><div class="overflow-x-auto"><table class="w-full text-sm text-left min-w-[700px] sm:min-w-full" id="serviceHistoryLogTable"><thead class="text-xs text-slate-500 uppercase bg-slate-100 tracking-wide"><tr><th class="px-2 py-3 sm:px-4 sm:py-4">Teslim Tarihi</th><th class="px-2 py-3 sm:px-4 sm:py-4">Müşteri</th><th class="px-2 py-3 sm:px-4 sm:py-4">Cihaz</th><th class="px-2 py-3 sm:px-4 sm:py-4">Sorun</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">Toplam Ücret</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">Net Kâr</th></tr></thead><tbody id="serviceHistoryLog"></tbody></table></div></div></div>
-        <div id="phone-stock-panel" class="hidden"><div class="grid grid-cols-1 xl:grid-cols-3 gap-8"><div class="card xl:col-span-1"><h2 class="text-xl font-bold mb-6 text-slate-800">Yeni Telefon Stoğu Ekle</h2><form id="addPhoneForm" class="space-y-6"><div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phoneStatus">Durum</label><select id="phoneStatus" class="input-field"><option>Sıfır</option><option>2. El</option></select></div><div><label for="phoneImei">IMEI Numarası</label><input type="text" id="phoneImei" class="input-field" placeholder="IMEI" required></div></div></div><div><label for="phoneModel">Marka & Model</label><input type="text" id="phoneModel" class="input-field" placeholder="Örn: Apple iPhone 14 Pro" required></div><div><label for="phoneSpecs">Hafıza & Renk</label><input type="text" id="phoneSpecs" class="input-field" placeholder="Örn: 256 GB Mor"></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phonePurchasePrice">Alış Fiyatı</label><input type="number" id="phonePurchasePrice" class="input-field" placeholder="Alış" min="0" step="0.01" required></div><div><label for="phoneSellingPrice">Satış Fiyatı</label><input type="number" id="phoneSellingPrice" class="input-field" placeholder="Satış" min="0" step="0.01" required></div></div><hr class="border-slate-300 !my-4"/><p class="text-sm font-semibold text-slate-500 !-mt-2 !mb-4">Detaylı Cihaz Bilgileri (2. El için)</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phoneBatteryHealth">Pil Sağlığı (%)</label><input type="number" id="phoneBatteryHealth" class="input-field" placeholder="95" min="0" max="100"></div><div><label for="phoneCosmetic">Kozmetik Durumu</label><select id="phoneCosmetic" class="input-field"><option value="">Belirtilmedi</option><option>A+ (Kusursuz)</option><option>A (Çok Temiz)</option><option>B (Hafif Yıpranma)</option><option>C (Belirgin Yıpranma)</option></select></div></div><div><label for="phoneAccessories">Kutu/Aksesuar Durumu</label><select id="phoneAccessories" class="input-field"><option value="">Belirtilmedi</option><option>Full Kutu</option><option>Sadece Cihaz</option><option>Şarj Aleti Var</option></select></div><div><label for="addPhoneImageUrl">Fotoğraf URL'si</label><input type="text" id="addPhoneImageUrl" class="input-field" placeholder="https://ornek.com/resim.jpg"></div><button type="submit" class="btn btn-primary w-full">Stoğa Ekle</button></form></div><div class="card xl:col-span-2"><h2 class="text-xl font-bold mb-6 text-slate-800">Stoktaki Telefonlar</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center"><div><p class="text-sm text-slate-500">Toplam Cihaz</p><p id="stockCount" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Stok Maliyeti</p><p id="stockCost" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Stok Değeri</p><p id="stockValue" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Potansiyel Kâr</p><p id="stockProfit" class="text-2xl font-bold text-emerald-600"></p></div></div><input type="text" id="phoneSearchInput" class="input-field mb-4" placeholder="Model veya IMEI ile ara..."><div class="overflow-y-auto h-96 overflow-x-auto"><table class="w-full text-sm text-left min-w-[768px] sm:min-w-full"><thead class="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0 tracking-wide"><tr id="analysisTableHeaders"><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="model">Model</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="imei">IMEI</th><th class="px-2 py-3 sm:px-4 sm:py-4">Detaylar</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="potentialProfit">Pot. Kâr</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="daysInStock">Stok Süresi</th><th class="px-1 py-3 sm:px-2 sm:py-4 text-center">🖼️</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-center">İşlemler</th></tr></thead><tbody id="phoneStockLog"></tbody></table></div></div></div></div>
+        <div id="phone-stock-panel" class="hidden"><div class="grid grid-cols-1 xl:grid-cols-3 gap-8"><div class="card xl:col-span-1"><h2 class="text-xl font-bold mb-6 text-slate-800">Yeni Telefon Stoğu Ekle</h2><form id="addPhoneForm" class="space-y-6"><div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phoneStatus">Durum</label><select id="phoneStatus" class="input-field"><option>Sıfır</option><option>2. El</option></select></div><div><label for="phoneImei">IMEI Numarası</label><div class="flex gap-2"><input type="text" id="phoneImei" class="input-field flex-1" placeholder="IMEI" required><button type="button" id="scanBarcodeBtn" class="btn btn-secondary !px-3 !py-2 flex items-center gap-2" title="Barkod Tarayıcısı"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="8" width="10" height="8" rx="1" ry="1"/><path d="M9 1v6M15 1v6M9 17v6M15 17v6M1 9h6M17 9h6M1 15h6M17 15h6"/></svg><span class="hidden sm:inline">Tara</span></button></div></div></div></div><div><label for="phoneModel">Marka & Model</label><input type="text" id="phoneModel" class="input-field" placeholder="Örn: Apple iPhone 14 Pro" required></div><div><label for="phoneSpecs">Hafıza & Renk</label><input type="text" id="phoneSpecs" class="input-field" placeholder="Örn: 256 GB Mor"></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phonePurchasePrice">Alış Fiyatı</label><input type="number" id="phonePurchasePrice" class="input-field" placeholder="Alış" min="0" step="0.01" required></div><div><label for="phoneSellingPrice">Satış Fiyatı</label><input type="number" id="phoneSellingPrice" class="input-field" placeholder="Satış" min="0" step="0.01" required></div></div><hr class="border-slate-300 !my-4"/><p class="text-sm font-semibold text-slate-500 !-mt-2 !mb-4">Detaylı Cihaz Bilgileri (2. El için)</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label for="phoneBatteryHealth">Pil Sağlığı (%)</label><input type="number" id="phoneBatteryHealth" class="input-field" placeholder="95" min="0" max="100"></div><div><label for="phoneCosmetic">Kozmetik Durumu</label><select id="phoneCosmetic" class="input-field"><option value="">Belirtilmedi</option><option>A+ (Kusursuz)</option><option>A (Çok Temiz)</option><option>B (Hafif Yıpranma)</option><option>C (Belirgin Yıpranma)</option></select></div></div><div><label for="phoneAccessories">Kutu/Aksesuar Durumu</label><select id="phoneAccessories" class="input-field"><option value="">Belirtilmedi</option><option>Full Kutu</option><option>Sadece Cihaz</option><option>Şarj Aleti Var</option></select></div><div><label for="addPhoneImageUrl">Fotoğraf URL'si</label><input type="text" id="addPhoneImageUrl" class="input-field" placeholder="https://ornek.com/resim.jpg"></div><button type="submit" class="btn btn-primary w-full">Stoğa Ekle</button></form></div><div class="card xl:col-span-2"><h2 class="text-xl font-bold mb-6 text-slate-800">Stoktaki Telefonlar</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center"><div><p class="text-sm text-slate-500">Toplam Cihaz</p><p id="stockCount" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Stok Maliyeti</p><p id="stockCost" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Stok Değeri</p><p id="stockValue" class="text-2xl font-bold text-slate-700"></p></div><div><p class="text-sm text-slate-500">Potansiyel Kâr</p><p id="stockProfit" class="text-2xl font-bold text-emerald-600"></p></div></div><input type="text" id="phoneSearchInput" class="input-field mb-4" placeholder="Model veya IMEI ile ara..."><div class="overflow-y-auto h-96 overflow-x-auto"><table class="w-full text-sm text-left min-w-[768px] sm:min-w-full"><thead class="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0 tracking-wide"><tr id="analysisTableHeaders"><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="model">Model</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="imei">IMEI</th><th class="px-2 py-3 sm:px-4 sm:py-4">Detaylar</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="potentialProfit">Pot. Kâr</th><th class="px-2 py-3 sm:px-4 sm:py-4 sortable" data-sort="daysInStock">Stok Süresi</th><th class="px-1 py-3 sm:px-2 sm:py-4 text-center">🖼️</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-center">İşlemler</th></tr></thead><tbody id="phoneStockLog"></tbody></table></div></div></div></div>
         <div id="sold-phones-panel" class="hidden"><div class="card"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3"><h2 class="text-2xl font-bold text-slate-800">Satılan Cihaz Geçmişi</h2><button class="btn btn-secondary export-btn self-start sm:self-center" data-table-id="soldPhonesLogTable" data-filename="satilan-cihazlar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m12 18-2-2 2-2"/><path d="m7 16h5"/></svg>Excel'e Aktar</button></div><input type="text" id="soldPhoneSearchInput" class="input-field mb-4" placeholder="Model, IMEI veya Müşteri Adı ile ara..."><div class="overflow-x-auto"><table class="w-full text-sm text-left min-w-[768px] sm:min-w-full" id="soldPhonesLogTable"><thead class="text-xs text-slate-500 uppercase bg-slate-100 tracking-wide"><tr><th class="px-2 py-3 sm:px-4 sm:py-4">Satış Tarihi</th><th class="px-2 py-3 sm:px-4 sm:py-4">Alıcı Adı Soyadı</th><th class="px-2 py-3 sm:px-4 sm:py-4">Cihaz Bilgisi</th><th class="px-2 py-3 sm:px-4 sm:py-4">IMEI</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">Alış Fiyatı</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">Satış Fiyatı</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">Kâr</th></tr></thead><tbody id="soldPhonesLog"></tbody></table></div></div></div>
         <div id="debt-panel" class="hidden"><div id="wholesaler-list-view"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3"><h2 class="text-2xl font-bold text-slate-800">Toptancılar</h2><button id="addWholesalerBtn" class="btn btn-primary self-start sm:self-center">Yeni Toptancı Ekle</button></div><div id="wholesaler-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div><div id="wholesaler-detail-view" class="hidden"><div class="card p-4 sm:p-6"><div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8"><div class="flex items-center mb-4 sm:mb-0"><button id="backToWholesalersBtn" class="mr-4 p-2 rounded-full hover:bg-slate-100 transition-colors" aria-label="Toptancılar listesine geri dön"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button><div> <h2 id="detailWholesalerName" class="text-2xl sm:text-3xl font-bold text-slate-800"></h2> </div></div><div class="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2 w-full sm:w-auto mt-3 sm:mt-0"><button id="addDebtToWholesalerBtn" class="btn btn-danger flex-1 sm:flex-initial">Borç Ekle</button><button id="addPaymentToWholesalerBtn" class="btn btn-success flex-1 sm:flex-initial">Ödeme Yap</button></div></div><div id="detailWholesalerBalance" class="bg-slate-50 rounded-lg p-6 mb-8 text-center"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-slate-700">Hesap Ekstresi</h3><button id="deleteWholesalerBtn" class="btn btn-danger !py-1 !px-3 !text-sm">Toptancıyı Sil</button></div><div class="overflow-x-auto"><table class="w-full text-sm text-left min-w-[600px] sm:min-w-full"><thead class="text-xs text-slate-500 uppercase bg-slate-100 tracking-wide"><tr><th class="px-2 py-3 sm:px-4 sm:py-4">Tarih</th><th class="px-2 py-3 sm:px-4 sm:py-4">Açıklama</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-right">İşlem Tutarı</th><th class="px-2 py-3 sm:px-4 sm:py-4 text-center">Sil</th></tr></thead><tbody id="transactionHistory"></tbody></table></div></div></div></div>
         
@@ -2940,17 +3012,322 @@
         };
         
         // Debounce function for performance optimization
+        // OPTIMIZE EDİLMİŞ DEBOUNCE - DAHA HIZLI
         const debounce = (func, wait) => {
             let timeout;
             return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
                 clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
+                timeout = setTimeout(() => func.apply(this, args), wait);
             };
         };
+
+        // PERFORMANS İZLEME
+        let performanceLog = {
+            renderTimes: [],
+            lastRender: Date.now()
+        };
+
+        function logPerformance(operation) {
+            const now = Date.now();
+            const timeDiff = now - performanceLog.lastRender;
+            performanceLog.renderTimes.push({ operation, time: timeDiff });
+            performanceLog.lastRender = now;
+            
+            // Son 10 işlemi tut
+            if (performanceLog.renderTimes.length > 10) {
+                performanceLog.renderTimes.shift();
+            }
+            
+            // Yavaş işlemleri konsola log et
+            if (timeDiff > 100) {
+                console.warn(`Yavaş işlem: ${operation} - ${timeDiff}ms`);
+            }
+        }
+
+        // ===== BARKOD OKUMA SİSTEMİ =====
+
+        let barcodeScanner = null;
+        let isScanning = false;
+
+        // Barkod tarayıcısını başlat
+        async function startBarcodeScanner() {
+            try {
+                // QuaggaJS kontrol
+                if (typeof Quagga === 'undefined') {
+                    throw new Error('Barkod kütüphanesi yüklenemedi');
+                }
+                
+                // Önceki tarayıcıyı durdur
+                if (barcodeScanner) {
+                    Quagga.stop();
+                    barcodeScanner = null;
+                }
+                
+                // Kamera erişimi iste
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment', // Arka kamera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                const video = document.getElementById('barcodeVideo');
+                video.srcObject = stream;
+                
+                // QuaggaJS'yi yapılandır
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: video,
+                        constraints: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment"
+                        }
+                    },
+                    locator: {
+                        patchSize: "medium",
+                        halfSample: true
+                    },
+                    numOfWorkers: 2,
+                    frequency: 10,
+                    decoder: {
+                        readers: [
+                            "code_128_reader",
+                            "ean_reader",
+                            "ean_8_reader",
+                            "code_39_reader",
+                            "code_39_vin_reader",
+                            "codabar_reader",
+                            "upc_reader",
+                            "upc_e_reader",
+                            "i2of5_reader"
+                        ]
+                    },
+                    locate: true
+                }, function(err) {
+                    if (err) {
+                        console.error('QuaggaJS başlatma hatası:', err);
+                        showBarcodeError('Kamera başlatılamadı: ' + err.message);
+                        return;
+                    }
+                    
+                    console.log("Barkod tarayıcısı başlatıldı");
+                    Quagga.start();
+                    isScanning = true;
+                    updateScanningStatus('🔍 Barkod aranıyor...');
+                });
+                
+                // Barkod algılandığında
+                Quagga.onDetected(function(result) {
+                    if (!isScanning) return;
+                    
+                    const code = result.codeResult.code;
+                    console.log('Barkod algılandı:', code);
+                    
+                    // IMEI formatını kontrol et (15 haneli sayı)
+                    if (isValidIMEI(code)) {
+                        handleBarcodeDetected(code);
+                    } else {
+                        // Geçersiz IMEI, taramaya devam et
+                        updateScanningStatus(`❌ Geçersiz IMEI: ${code} - Tekrar deneyin...`);
+                        setTimeout(() => {
+                            updateScanningStatus('🔍 Barkod aranıyor...');
+                        }, 2000);
+                    }
+                });
+                
+                barcodeScanner = true;
+                
+            } catch (error) {
+                console.error('Kamera erişim hatası:', error);
+                let errorMsg = 'Kamera erişimi reddedildi';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Kamera izni gerekli. Lütfen tarayıcı ayarlarından kamera erişimini etkinleştirin.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = 'Kamera bulunamadı. Cihazınızda kamera olduğundan emin olun.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMsg = 'Barkod tarama bu tarayıcıda desteklenmiyor.';
+                }
+                
+                showBarcodeError(errorMsg);
+            }
+        }
+
+        // Barkod tarayıcısını durdur
+        function stopBarcodeScanner() {
+            try {
+                if (barcodeScanner && typeof Quagga !== 'undefined') {
+                    Quagga.stop();
+                    barcodeScanner = null;
+                }
+                
+                // Video stream'i durdur
+                const video = document.getElementById('barcodeVideo');
+                if (video && video.srcObject) {
+                    const tracks = video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                
+                isScanning = false;
+                console.log('Barkod tarayıcısı durduruldu');
+            } catch (error) {
+                console.error('Tarayıcı durdurma hatası:', error);
+            }
+        }
+
+        // IMEI formatını doğrula
+        function isValidIMEI(imei) {
+            // IMEI 15 haneli sayı olmalı
+            const imeiRegex = /^\d{15}$/;
+            return imeiRegex.test(imei);
+        }
+
+        // Barkod algılandığında
+        function handleBarcodeDetected(imei) {
+            isScanning = false;
+            
+            // Başarı göstergesi
+            updateScanningStatus('✅ IMEI başarıyla okundu!');
+            
+            // Sonuç alanını göster
+            const resultDiv = document.getElementById('scanResult');
+            const errorDiv = document.getElementById('scanError');
+            const scannedImeiEl = document.getElementById('scannedImei');
+            const useBtn = document.getElementById('useBarcodeBtn');
+            
+            resultDiv.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+            scannedImeiEl.textContent = imei;
+            useBtn.classList.remove('hidden');
+            
+            // Vibration feedback (destekleyen cihazlarda)
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+            
+            // Ses feedback (opsiyonel)
+            playBeepSound();
+            
+            // Tarayıcıyı duraklat
+            Quagga.stop();
+        }
+
+        // Tarama durumunu güncelle
+        function updateScanningStatus(message) {
+            const statusEl = document.getElementById('scanningStatus');
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="bg-black/50 text-white px-3 py-1 rounded-full text-sm">${message}</span>`;
+            }
+        }
+
+        // Hata göster
+        function showBarcodeError(message) {
+            const errorDiv = document.getElementById('scanError');
+            const resultDiv = document.getElementById('scanResult');
+            const errorMsgEl = document.getElementById('errorMessage');
+            
+            errorDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            errorMsgEl.textContent = message;
+            
+            updateScanningStatus('❌ Hata oluştu');
+        }
+
+        // Başarı sesi çal
+        function playBeepSound() {
+            try {
+                // Web Audio API ile basit beep sesi
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (error) {
+                // Ses çalma hatası, sessizce geç
+                console.log('Ses çalma desteklenmiyor:', error);
+            }
+        }
+
+        // Barkod modalını aç
+        function openBarcodeModal() {
+            // Diğer modalları kapat
+            document.querySelectorAll('.modal-overlay').forEach(modal => {
+                if (modal.id !== 'barcodeModal') {
+                    modal.classList.add('hidden');
+                }
+            });
+            
+            // Barkod modalını aç
+            const modal = document.getElementById('barcodeModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                
+                // Sonuç alanlarını temizle
+                document.getElementById('scanResult').classList.add('hidden');
+                document.getElementById('scanError').classList.add('hidden');
+                document.getElementById('useBarcodeBtn').classList.add('hidden');
+                
+                // Tarayıcıyı başlat
+                setTimeout(() => {
+                    startBarcodeScanner();
+                }, 500); // Modal animasyonu için bekle
+            }
+        }
+
+        // Barkod modalını kapat
+        function closeBarcodeModal() {
+            stopBarcodeScanner();
+            
+            const modal = document.getElementById('barcodeModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Taranan IMEI'yi kullan
+        function useBarcodeResult() {
+            const scannedImei = document.getElementById('scannedImei').textContent;
+            const imeiInput = document.getElementById('phoneImei');
+            
+            if (scannedImei && imeiInput) {
+                imeiInput.value = scannedImei;
+                imeiInput.focus();
+                
+                // Başarı mesajı
+                showToast(`IMEI başarıyla dolduruldu: ${scannedImei}`, 'success');
+                
+                // Modalı kapat
+                closeBarcodeModal();
+            }
+        }
+
+        // Tekrar tara
+        function retryBarcodeScanning() {
+            // Sonuç alanlarını gizle
+            document.getElementById('scanResult').classList.add('hidden');
+            document.getElementById('scanError').classList.add('hidden');
+            document.getElementById('useBarcodeBtn').classList.add('hidden');
+            
+            // Tarayıcıyı yeniden başlat
+            setTimeout(() => {
+                startBarcodeScanner();
+            }, 500);
+        }
         
         // Auto currency conversion for shortage items
         const setupShortageAutoCurrencyConversion = () => {
@@ -3246,14 +3623,65 @@
         }
 
         async function fetchExchangeRate() { 
-            try { 
-                const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD'); 
-                if (!r.ok) throw new Error('API request failed'); 
-                const d = await r.json(); 
-                currentUsdRate = d.rates.TRY; 
+            try {
+                console.log('Döviz kuru güncelleniyor...');
+                
+                // Birden fazla API deneyelim - mobil uyumlu olanlar
+                const apis = [
+                    // Ana API
+                    'https://api.exchangerate-api.com/v4/latest/USD',
+                    // Alternatif API'ler - CORS destekli
+                    'https://api.fxratesapi.com/latest?base=USD&symbols=TRY',
+                    'https://api.currencyapi.com/v3/latest?apikey=free&base_currency=USD&currencies=TRY'
+                ];
+                
+                let success = false;
+                
+                for (const apiUrl of apis) {
+                    try {
+                        console.log(`API deneniyor: ${apiUrl}`);
+                        const r = await fetch(apiUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            mode: 'cors'
+                        }); 
+                        
+                        if (!r.ok) {
+                            console.warn(`API hatası (${r.status}): ${apiUrl}`);
+                            continue;
+                        }
+                        
+                        const d = await r.json(); 
+                        console.log('API yanıtı:', d);
+                        
+                        // Farklı API formatlarını kontrol et
+                        if (d.rates && d.rates.TRY) {
+                            currentUsdRate = d.rates.TRY;
+                            success = true;
+                            console.log(`Döviz kuru güncellendi: ${currentUsdRate} TL`);
+                            break;
+                        } else if (d.data && d.data.TRY) {
+                            currentUsdRate = d.data.TRY.value || d.data.TRY;
+                            success = true;
+                            console.log(`Döviz kuru güncellendi: ${currentUsdRate} TL`);
+                            break;
+                        }
+                    } catch (apiError) {
+                        console.warn(`API ${apiUrl} başarısız:`, apiError);
+                        continue;
+                    }
+                }
+                
+                if (!success) {
+                    throw new Error('Tüm döviz kuru API\'leri başarısız');
+                }
+                
             } catch (e) { 
-                console.error(e); 
-                showToast(`Dolar kuru güncellenemedi, varsayılan (${currentUsdRate}) kullanılıyor.`, 'error'); 
+                console.error('Döviz kuru hatası:', e); 
+                showToast(`Dolar kuru güncellenemedi, varsayılan (${currentUsdRate.toFixed(2)} TL) kullanılıyor.`, 'warning'); 
             } finally {
                 updateCurrencyConverterDisplay(); 
                 // Update the exchange rate input in the transaction modal if it's open
@@ -4856,211 +5284,115 @@
 
         async function fetchExchangeRates() {
             try {
+                console.log('Döviz kurları güncelleniyor...');
                 showToast('Güncel kurlar çekiliyor...', 'info');
                 
-                // Birden fazla ücretsiz API kaynak kullanarak güvenilirlik artırma
+                // Mobil uyumlu API'ler - CORS desteği olan
+                const apis = [
+                    {
+                        url: 'https://api.exchangerate-api.com/v4/latest/USD',
+                        parser: (data) => ({
+                            usd: data.rates?.TRY,
+                            eur: data.rates?.TRY && data.rates?.EUR ? data.rates.TRY / data.rates.EUR : null,
+                            source: 'ExchangeRate-API'
+                        })
+                    },
+                    {
+                        url: 'https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/usd.json',
+                        parser: (data) => ({
+                            usd: data.usd?.try,
+                            eur: data.usd?.try && data.usd?.eur ? data.usd.try / data.usd.eur : null,
+                            source: 'Currency-API (CDN)'
+                        })
+                    },
+                    {
+                        url: 'https://api.fxratesapi.com/latest?base=USD&symbols=TRY,EUR',
+                        parser: (data) => ({
+                            usd: data.rates?.TRY,
+                            eur: data.rates?.TRY && data.rates?.EUR ? data.rates.TRY / data.rates.EUR : null,
+                            source: 'FxRatesAPI'
+                        })
+                    }
+                ];
+                
                 let rates = null;
                 
-                // 1. Currency-API (ücretsiz, güvenilir, API key gerektirmez)
-                try {
-                    const response = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.usd && data.usd.try && data.usd.eur) {
-                            rates = {
-                                usd: data.usd.try,
-                                eur: data.usd.try / data.usd.eur, // EUR'dan TRY'ye çevir
-                                source: 'Currency-API (CDN)'
-                            };
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Currency-API hatası:', e);
-                }
-                
-                // 2. ExchangeRate-API (ücretsiz, güvenilir)
-                if (!rates) {
+                for (const api of apis) {
                     try {
-                        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.rates && data.rates.TRY) {
-                                rates = {
-                                    usd: data.rates.TRY,
-                                    eur: data.rates.EUR ? data.rates.TRY / data.rates.EUR : data.rates.TRY / 1.1,
-                                    source: 'ExchangeRate-API'
-                                };
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('ExchangeRate-API hatası:', e);
-                    }
-                }
-                
-                // 3. FreeCurrencyAPI (ücretsiz, API key gerektirmez)
-                if (!rates) {
-                    try {
-                        const response = await fetch('https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_YOUR_KEY&currencies=TRY%2CEUR&base_currency=USD');
-                        // API key olmasa da deneyebiliriz, bazı API'ler sınırlı erişim verir
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.data && data.data.TRY) {
-                                rates = {
-                                    usd: data.data.TRY,
-                                    eur: data.data.EUR ? data.data.TRY / data.data.EUR : data.data.TRY / 1.1,
-                                    source: 'FreeCurrencyAPI'
-                                };
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('FreeCurrencyAPI hatası:', e);
-                    }
-                }
-                
-                // 4. Backup: JSON kur servisi (alternatif API)
-                if (!rates) {
-                    try {
-                        const response = await fetch('https://api.currencybeacon.com/v1/latest?api_key=YOUR_KEY&base=USD&symbols=TRY,EUR');
-                        // Bu da başarısız olursa diğerine geç
-                    } catch (e) {
-                        console.warn('CurrencyBeacon hatası:', e);
-                    }
-                }
-                
-                // 5. TCMB (Türkiye Cumhuriyet Merkez Bankası) - Resmi kaynak
-                if (!rates) {
-                    try {
-                        const today = new Date();
-                        let dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+                        console.log(`API deneniyor: ${api.url}`);
+                        const response = await fetch(api.url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            mode: 'cors',
+                            timeout: 10000
+                        });
                         
-                        // Eğer bugün weekend ise veya data yoksa, son iş gününü dene
-                        for (let i = 0; i < 7; i++) {
-                            try {
-                                const testDate = new Date(today);
-                                testDate.setDate(testDate.getDate() - i);
-                                dateStr = testDate.toISOString().split('T')[0].replace(/-/g, '');
-                                
-                                const response = await fetch(`https://www.tcmb.gov.tr/kurlar/${dateStr.slice(0,6)}/${dateStr}.xml`);
-                                
-                                if (response.ok) {
-                                    const xmlText = await response.text();
-                                    const parser = new DOMParser();
-                                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                                    
-                                    const usdElement = Array.from(xmlDoc.querySelectorAll('Currency')).find(currency => 
-                                        currency.getAttribute('CurrencyCode') === 'USD'
-                                    );
-                                    const eurElement = Array.from(xmlDoc.querySelectorAll('Currency')).find(currency => 
-                                        currency.getAttribute('CurrencyCode') === 'EUR'
-                                    );
-                                    
-                                    if (usdElement && eurElement) {
-                                        const usdRate = parseFloat(usdElement.querySelector('ForexSelling').textContent);
-                                        const eurRate = parseFloat(eurElement.querySelector('ForexSelling').textContent);
-                                        
-                                        if (usdRate > 0 && eurRate > 0) {
-                                            rates = {
-                                                usd: usdRate,
-                                                eur: eurRate,
-                                                source: 'TCMB (Merkez Bankası)'
-                                            };
-                                            break; // Başarılı, döngüden çık
-                                        }
-                                    }
-                                }
-                            } catch (tcmbError) {
-                                console.warn(`TCMB ${dateStr} hatası:`, tcmbError);
-                                continue; // Bir önceki günü dene
-                            }
+                        if (!response.ok) {
+                            console.warn(`API ${api.url} HTTP error: ${response.status}`);
+                            continue;
                         }
-                    } catch (e) {
-                        console.warn('TCMB API genel hatası:', e);
+                        
+                        const data = await response.json();
+                        console.log(`API ${api.url} yanıtı:`, data);
+                        
+                        const parsed = api.parser(data);
+                        if (parsed.usd && parsed.usd > 0) {
+                            rates = parsed;
+                            console.log(`Başarılı API: ${api.url}`, rates);
+                            break;
+                        }
+                    } catch (apiError) {
+                        console.warn(`API ${api.url} hatası:`, apiError);
                     }
                 }
                 
-                // 6. Son fallback: Sabit güncel kurlar (güncel piyasa değerleri)
-                if (!rates) {
-                    console.warn('Tüm API\'ler başarısız, varsayılan kurlar kullanılıyor');
-                    const currentDate = new Date();
+                if (rates && rates.usd > 0) {
+                    // USD kurunu güncelle
+                    currentUsdRate = rates.usd;
+                    if (el.currentUsdRate) {
+                        el.currentUsdRate.value = rates.usd.toFixed(4);
+                    }
                     
-                    // 2024 yılının genel ortalaması (güncellenebilir)
-                    rates = {
-                        usd: 34.20,  // Güncel USD/TRY yaklaşık değeri
-                        eur: 37.10,  // Güncel EUR/TRY yaklaşık değeri  
-                        source: 'Varsayılan Kurlar (API Hatası)',
-                        isDefault: true
+                    // EUR kurunu güncelle (varsa)
+                    if (rates.eur && rates.eur > 0 && el.currentEurRate) {
+                        el.currentEurRate.value = rates.eur.toFixed(4);
+                    }
+                    
+                    // Ayarları kaydet
+                    const settings = {
+                        currentUsdRate: rates.usd,
+                        currentEurRate: rates.eur || 35.20,
+                        rateSource: rates.source,
+                        lastRateUpdate: new Date().toISOString(),
+                        isManualRate: false
                     };
                     
-                    showToast('API\'lerden kur alınamadı, varsayılan kurlar kullanılıyor. Lütfen manuel güncelleme yapın.', 'warning');
-                }
-                
-                if (rates) {
-                    // UI'yi güncelle
-                    if (el.currentUsdRate) el.currentUsdRate.value = rates.usd.toFixed(2);
-                    if (el.currentEurRate) el.currentEurRate.value = rates.eur.toFixed(2);
-                    
-                    // Global değişkeni güncelle
-                    currentUsdRate = rates.usd;
+                    localStorage.setItem('exchangeRateSettings', JSON.stringify(settings));
+                    updateLastUpdateInfo();
                     updateCurrencyConverterDisplay();
                     
-                    // Ayarlara kaydet
-                    const settings = JSON.parse(localStorage.getItem('teknoHesapSettings') || '{}');
-                    settings.currentUsdRate = rates.usd.toFixed(2);
-                    settings.currentEurRate = rates.eur.toFixed(2);
-                    settings.lastRateUpdate = new Date().toISOString();
-                    settings.rateSource = rates.source;
-                    settings.isManualRate = rates.isDefault || false;
-                    localStorage.setItem('teknoHesapSettings', JSON.stringify(settings));
-                    
-                    // Son güncelleme bilgisini güncelle
-                    updateLastRateInfo();
-                    
-                    if (rates.isDefault) {
-                        showToast(`Varsayılan kurlar yüklendi (${rates.source}). Manuel güncelleme önerilir.`, 'warning');
-                    } else {
-                        showToast(`Güncel kurlar başarıyla güncellendi! (Kaynak: ${rates.source})`, 'success');
-                    }
+                    showToast(`Döviz kurları güncellendi! (${rates.source})`, 'success');
+                    console.log(`Kurlar güncellendi - USD: ${rates.usd.toFixed(2)} TL, EUR: ${(rates.eur || 0).toFixed(2)} TL`);
                 } else {
-                    throw new Error('Hiçbir kaynaktan kur bilgisi alınamadı');
+                    throw new Error('Tüm döviz kuru API\'leri başarısız oldu');
                 }
                 
             } catch (error) {
-                console.error('Kur güncelleme hatası:', error);
-                showToast('Kur güncellemesi başarısız! İnternet bağlantınızı kontrol edin.', 'error');
+                console.error('Döviz kuru güncelleme hatası:', error);
+                showToast('Döviz kurları güncellenemedi. Mevcut kurlar kullanılmaya devam edecek.', 'warning');
                 
-                // Fallback: Manuel kur girişi önerisi
-                const userWantsManual = confirm('Otomatik kur güncellemesi başarısız oldu.\n\nManuel USD ve EUR kurlarını girmek ister misiniz?');
-                if (userWantsManual) {
-                    const userUsdRate = prompt('USD kuru (örn: 34.20):');
-                    const userEurRate = prompt('EUR kuru (örn: 37.10):');
-                    
-                    if (userUsdRate && !isNaN(userUsdRate) && parseFloat(userUsdRate) > 0) {
-                        const usdRate = parseFloat(userUsdRate);
-                        const eurRate = userEurRate && !isNaN(userEurRate) && parseFloat(userEurRate) > 0 
-                            ? parseFloat(userEurRate) 
-                            : usdRate * 1.08; // EUR genelde USD'den %8 daha yüksek
-                        
-                        if (el.currentUsdRate) el.currentUsdRate.value = usdRate.toFixed(2);
-                        if (el.currentEurRate) el.currentEurRate.value = eurRate.toFixed(2);
-                        
-                        currentUsdRate = usdRate;
-                        updateCurrencyConverterDisplay();
-                        
-                        // Manuel kurları kaydet
-                        const settings = JSON.parse(localStorage.getItem('teknoHesapSettings') || '{}');
-                        settings.currentUsdRate = usdRate.toFixed(2);
-                        settings.currentEurRate = eurRate.toFixed(2);
-                        settings.lastRateUpdate = new Date().toISOString();
-                        settings.rateSource = 'Manuel Giriş';
-                        settings.isManualRate = true;
-                        localStorage.setItem('teknoHesapSettings', JSON.stringify(settings));
-                        
-                        // Son güncelleme bilgisini güncelle
-                        updateLastRateInfo();
-                        
-                        showToast('Manuel kurlar başarıyla ayarlandı!', 'success');
+                // Hata durumunda varsayılan kurları kullan
+                if (!currentUsdRate || currentUsdRate <= 0) {
+                    currentUsdRate = 34.50; // Varsayılan USD kuru
+                    if (el.currentUsdRate) {
+                        el.currentUsdRate.value = currentUsdRate.toFixed(4);
                     }
                 }
+                
+                updateCurrencyConverterDisplay();
             }
         }
 
@@ -5481,9 +5813,23 @@
             }, 100); // 100ms gecikme
         }
         
+        // CHART.JS ANİMASYONLARI KAPALI - ULTRA HIZLI
         const getChartOptions = () => ({ 
             responsive: true, 
-            maintainAspectRatio: false, 
+            maintainAspectRatio: false,
+            animation: false, // Animasyonu kapat
+            animations: {
+                colors: false,
+                x: false,
+                y: false
+            },
+            transitions: {
+                active: {
+                    animation: {
+                        duration: 0
+                    }
+                }
+            },
             scales: { 
                 x: { 
                     ticks: { color: '#94a3b8' }, 
@@ -6004,6 +6350,8 @@
         // ULTRA FAST TAB SWITCHING - TÜM DONMA SORUNU ÇÖZÜLDİ
         let isTabSwitching = false;
         
+        // ULTRA FAST TAB SWITCHING - TÜM DONMA SORUNU ÇÖZÜLDİ
+
         el.tabs.addEventListener('click', e => {
             const tabButton = e.target.closest('.tab');
             if (!tabButton || isTabSwitching) return;
@@ -6020,37 +6368,39 @@
             const targetPanel = document.getElementById(targetTab);
             if (targetPanel) targetPanel.classList.remove('hidden');
 
-            // Hızlı render - hiç bekleme yok
-            if (targetTab === 'daily-report-panel') {
-                setReportDateAndRefresh(getLocalYYYYMMDD());
-            } else if (targetTab === 'reports-panel') {
-                renderAdvancedReport();
-            } else if (targetTab === 'sold-phones-panel') {
-                loadAndRenderSoldPhonesLog();
-            } else if (targetTab === 'debt-panel') {
-                renderWholesalerList();
-                el.wholesalerListView.classList.remove('hidden');
-                el.wholesalerDetailView.classList.add('hidden');
-            } else if (targetTab === 'service-history-panel') {
-                renderServiceHistoryLog();
-            } else if (targetTab === 'phone-stock-panel') {
-                renderAnalysisView();
-            } else if (targetTab === 'shortages-panel') {
-                renderShopShortagesLog();
-            } else if (targetTab === 'product-prices-panel') {
-                renderProductPricesLog();
-            } else if (targetTab === 'cash-advances-panel') {
-                renderCashAdvancesLog();
-                updateCashAdvancesStats();
-                updatePersonFilter();
-                renderPersonAdvancesSummary();
-            } else if (targetTab === 'settings-panel') {
-                loadSettingsData();
-            } else if (targetTab === 'cash-tracker-panel') {
-                showCashTrackerPanel();
-            }
-            
-            isTabSwitching = false;
+            // Render işlemlerini async yap - UI block etme
+            setTimeout(() => {
+                if (targetTab === 'daily-report-panel') {
+                    setReportDateAndRefresh(getLocalYYYYMMDD());
+                } else if (targetTab === 'reports-panel') {
+                    renderAdvancedReport();
+                } else if (targetTab === 'sold-phones-panel') {
+                    loadAndRenderSoldPhonesLog();
+                } else if (targetTab === 'debt-panel') {
+                    renderWholesalerList();
+                    el.wholesalerListView.classList.remove('hidden');
+                    el.wholesalerDetailView.classList.add('hidden');
+                } else if (targetTab === 'service-history-panel') {
+                    renderServiceHistoryLog();
+                } else if (targetTab === 'phone-stock-panel') {
+                    renderAnalysisView();
+                } else if (targetTab === 'shortages-panel') {
+                    renderShopShortagesLog();
+                } else if (targetTab === 'product-prices-panel') {
+                    renderProductPricesLog();
+                } else if (targetTab === 'cash-advances-panel') {
+                    renderCashAdvancesLog();
+                    updateCashAdvancesStats();
+                    updatePersonFilter();
+                    renderPersonAdvancesSummary();
+                } else if (targetTab === 'settings-panel') {
+                    loadSettingsData();
+                } else if (targetTab === 'cash-tracker-panel') {
+                    showCashTrackerPanel();
+                }
+                
+                isTabSwitching = false;
+            }, 0);
         });
 
         // Sales Panel Actions
@@ -6135,20 +6485,25 @@
             }); 
         });
         
-        el.phoneSearchInput.addEventListener('input', renderAnalysisView);
-        el.stockSellSearch.addEventListener('input', e => renderStockSellList(e.target.value));
-        el.serviceDeliverySearch.addEventListener('input', e => renderServiceDeliveryList(e.target.value));
-        el.productPriceSearchInput.addEventListener('input', renderProductPricesLog);
+        // SEARCH INPUT'LARI OPTİMİZE ET - DEBOUNCE İLE
+        const optimizedRenderAnalysisView = debounce(renderAnalysisView, 300);
+        const optimizedRenderProductPricesLog = debounce(renderProductPricesLog, 300);
+        const optimizedRenderServiceHistoryLog = debounce(renderServiceHistoryLog, 300);
+        
+        el.phoneSearchInput.addEventListener('input', optimizedRenderAnalysisView);
+        el.stockSellSearch.addEventListener('input', debounce(e => renderStockSellList(e.target.value), 300));
+        el.serviceDeliverySearch.addEventListener('input', debounce(e => renderServiceDeliveryList(e.target.value), 300));
+        el.productPriceSearchInput.addEventListener('input', optimizedRenderProductPricesLog);
         
         // Re-render sold phones log only if the panel is currently visible
-        el.soldPhoneSearchInput.addEventListener('input', () => { 
+        el.soldPhoneSearchInput.addEventListener('input', debounce(() => { 
             if(el.soldPhonesPanel.style.display !== 'none') {
                 // No need to load data again, just filter the existing data
                 renderSoldPhonesLog(advancedReportDataCache.sales.filter(s => s.type === 'device')); // Use cached data if available, or rely on listener
             } 
-        }); 
+        }, 300)); 
         
-        el.serviceHistorySearchInput.addEventListener('input', renderServiceHistoryLog); 
+        el.serviceHistorySearchInput.addEventListener('input', optimizedRenderServiceHistoryLog); 
         
         // Event delegation for Service Log status change and buttons
         el.serviceLog.addEventListener('change', e => { 
@@ -7108,16 +7463,19 @@
         
         // --- Initialization ---
         async function initializeAppCore() { 
-            // Initialize theme system first
-            initializeTheme();
-            
-            // Cache the initial HTML structure of the advanced report placeholder
-            advancedReportHTMLCache = document.getElementById('advReportContentPlaceholder').innerHTML; 
-            
-            checkDateInputSupport(); 
-            
-            // Fetch initial exchange rate and set up interval for updates
-            await fetchExchangeRate(); 
+            try {
+                console.log('TeknoHesap başlatılıyor...');
+                
+                // Initialize theme system first
+                initializeTheme();
+                
+                // Cache the initial HTML structure of the advanced report placeholder
+                advancedReportHTMLCache = document.getElementById('advReportContentPlaceholder').innerHTML; 
+                
+                checkDateInputSupport(); 
+                
+                // Fetch initial exchange rate and set up interval for updates
+                await fetchExchangeRate(); 
             exchangeRateIntervalId = setInterval(fetchExchangeRate, 3600000); // Update every hour
 
             // Set up Firebase Auth state listener
@@ -7198,6 +7556,15 @@
                     cleanupAndShowLogin(); 
                 } 
             }); 
+            } catch (error) {
+                console.error('TeknoHesap başlatma hatası:', error);
+                // Site yine de çalışmaya devam etsin
+                const loadingScreen = document.querySelector('.loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                }
+                showToast('Uygulama başlatılırken bir hata oluştu, ancak devam edebilirsiniz.', 'warning');
+            }
         }
         
         // === KASA TAKİP SİSTEMİ JAVASCRIPT FONKSİYONLARI ===
@@ -8336,8 +8703,176 @@
         `;
         document.head.appendChild(style);
 
+        // ===== BARKOD TARAYICI EVENT LISTENERS =====
+        
+        // QuaggaJS yükleme kontrolü ve güvenli başlatma
+        function initializeBarcodeFeature() {
+            try {
+                // QuaggaJS kontrolü
+                if (typeof Quagga === 'undefined') {
+                    console.warn('QuaggaJS kütüphanesi yüklenemedi. Barkod özelliği devre dışı.');
+                    // Barkod butonunu gizle
+                    const scanBtn = document.getElementById('scanBarcodeBtn');
+                    if (scanBtn) {
+                        scanBtn.style.display = 'none';
+                    }
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error('Barkod özelliği başlatılamadı:', error);
+                return false;
+            }
+        }
+        
+        // Barkod Tarayıcı Event Listeners
+        const scanBarcodeBtn = document.getElementById('scanBarcodeBtn');
+        if (scanBarcodeBtn) {
+            scanBarcodeBtn.addEventListener('click', () => {
+                // QuaggaJS kontrolü
+                if (!initializeBarcodeFeature()) {
+                    showToast('Barkod özelliği şu anda kullanılamıyor. Lütfen IMEI\'yi manuel olarak girin.', 'error');
+                    return;
+                }
+                
+                // HTTPS kontrolü
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    showToast('Barkod tarama HTTPS protokolü gerektirir. Güvenli bağlantı kullanın.', 'error');
+                    return;
+                }
+                
+                // Kamera desteği kontrolü
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showToast('Bu tarayıcıda kamera desteği bulunmuyor.', 'error');
+                    return;
+                }
+                
+                openBarcodeModal();
+            });
+        }
+
+        // Barkod Modal Event Listeners
+        const barcodeModal = document.getElementById('barcodeModal');
+        if (barcodeModal) {
+            // Modal kapatma butonları
+            document.getElementById('closeBarcodeModalBtn').addEventListener('click', closeBarcodeModal);
+            document.getElementById('closeBarcodeBtn').addEventListener('click', closeBarcodeModal);
+            
+            // IMEI kullanma butonu
+            document.getElementById('useBarcodeBtn').addEventListener('click', useBarcodeResult);
+            
+            // Tekrar tarama butonu
+            document.getElementById('retryBarcodeBtn').addEventListener('click', retryBarcodeScanning);
+            
+            // Modal dışına tıklama ile kapatma
+            barcodeModal.addEventListener('click', (e) => {
+                if (e.target === barcodeModal) {
+                    closeBarcodeModal();
+                }
+            });
+        }
+
+        // Sayfa kapanırken kamerayı durdur
+        window.addEventListener('beforeunload', () => {
+            try {
+                if (typeof stopBarcodeScanner === 'function') {
+                    stopBarcodeScanner();
+                }
+            } catch (error) {
+                console.error('Cleanup error:', error);
+            }
+        });
+
+        // Visibility change event'i ile kamerayı yönet
+        document.addEventListener('visibilitychange', () => {
+            try {
+                if (document.hidden && isScanning && typeof stopBarcodeScanner === 'function') {
+                    stopBarcodeScanner();
+                }
+            } catch (error) {
+                console.error('Visibility change error:', error);
+            }
+        });
+
         // Start the application initialization process
         initializeAppCore();
     </script>
+    <!-- Barkod Tarayıcı Modal -->
+    <div id="barcodeModal" class="modal-overlay hidden">
+        <div class="card w-full max-w-lg relative">
+            <button id="closeBarcodeModalBtn" class="absolute top-4 right-4 text-2xl font-bold text-slate-500 hover:text-slate-800 z-10" aria-label="Kapat">&times;</button>
+            
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-2">📱 Barkod Tarayıcısı</h2>
+                <p class="text-slate-600 text-sm">Cihazınızdaki IMEI etiketini kameraya tutun</p>
+            </div>
+            
+            <!-- Kamera Önizleme -->
+            <div class="relative mb-4">
+                <video id="barcodeVideo" class="w-full h-64 bg-black rounded-lg" autoplay playsinline></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div class="border-2 border-emerald-400 w-48 h-12 rounded-lg border-dashed"></div>
+                </div>
+                <div id="scanningStatus" class="absolute bottom-2 left-2 right-2 text-center">
+                    <span class="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                        🔍 Barkod aranıyor...
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Sonuç ve Kontroller -->
+            <div id="scanResult" class="hidden mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span class="font-semibold text-green-800">Barkod Okundu!</span>
+                </div>
+                <div class="bg-white p-3 rounded border border-green-300">
+                    <span class="text-sm text-slate-600">IMEI:</span>
+                    <div id="scannedImei" class="font-mono text-lg font-bold text-slate-800"></div>
+                </div>
+            </div>
+            
+            <!-- Hata Durumu -->
+            <div id="scanError" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="font-semibold text-red-800">Tarama Hatası</span>
+                </div>
+                <p id="errorMessage" class="text-red-700 text-sm"></p>
+            </div>
+            
+            <!-- Butonlar -->
+            <div class="flex flex-col gap-3">
+                <button id="useBarcodeBtn" class="btn btn-success w-full hidden">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Bu IMEI'yi Kullan
+                </button>
+                <div class="flex gap-2">
+                    <button id="retryBarcodeBtn" class="btn btn-secondary flex-1">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Tekrar Tara
+                    </button>
+                    <button id="closeBarcodeBtn" class="btn btn-secondary flex-1">Kapat</button>
+                </div>
+            </div>
+            
+            <!-- Desteklenen Formatlar -->
+            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-xs text-blue-700">
+                    <strong>💡 İpucu:</strong> IMEI genellikle cihazın arkasında, pil bölmesinde veya SIM kart tepsisinde bulunur. 
+                    1D ve 2D barkodlar desteklenir.
+                </p>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
